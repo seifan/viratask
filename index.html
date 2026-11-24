@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>کارهای من</title>
+<meta name="theme-color" content="#0f766e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="کارهای من">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;800&display=swap">
+<style>
+:root{--bg:#f3f6f7;--card:#fff;--ink:#1c2630;--mute:#6b7885;--line:#dde4e8;--acc:#0f766e;--accbg:#e0f2f0;--danger:#c0392b;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12181d;--card:#1b242b;--ink:#e8eef2;--mute:#8d9aa6;--line:#2c3841;--acc:#2dd4bf;--accbg:#173a38;--danger:#ff7b6b}}
+:root[data-theme="dark"]{--bg:#12181d;--card:#1b242b;--ink:#e8eef2;--mute:#8d9aa6;--line:#2c3841;--acc:#2dd4bf;--accbg:#173a38;--danger:#ff7b6b}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Vazirmatn,Tahoma,sans-serif;line-height:1.7}
+main{max-width:560px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:26px;font-weight:800;margin:0 0 16px}
+.row{display:flex;gap:8px}
+input[type=text]{flex:1;min-width:0;font:inherit;color:var(--ink);background:var(--card);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px}
+input[type=text]:focus{outline:2px solid var(--acc);outline-offset:1px}
+button{font:inherit;cursor:pointer;border:0;border-radius:10px}
+.add{background:var(--acc);color:var(--bg);font-weight:600;padding:0 16px}
+:root:not([data-theme="dark"]) .add{color:#fff}
+button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.task{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-top:16px}
+.head{display:flex;align-items:center;gap:8px}
+.head h2{flex:1;font-size:18px;font-weight:600;margin:0;overflow-wrap:anywhere}
+.cnt{font-size:13px;color:var(--mute)}
+.bar{height:5px;background:var(--line);border-radius:3px;margin:8px 0 6px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--acc);transition:width .25s}
+.del{background:none;color:var(--mute);padding:2px 8px;font-size:18px}
+.del:hover{color:var(--danger)}
+.step{display:flex;align-items:center;gap:10px;padding:6px 0}
+.step input{width:20px;height:20px;accent-color:var(--acc);flex:none;cursor:pointer}
+.step label{flex:1;cursor:pointer;overflow-wrap:anywhere}
+.step.done label{color:var(--mute);text-decoration:line-through}
+.step .del{font-size:16px;opacity:.7}
+.addstep{margin-top:6px}
+.addstep input{padding:7px 10px;font-size:14px}
+.addstep .add{background:var(--accbg);color:var(--acc);font-size:14px;padding:0 12px}
+.empty{text-align:center;color:var(--mute);margin-top:40px}
+</style>
+</head>
+<body>
+<main>
+  <h1>کارهای من</h1>
+  <div class="row">
+    <input type="text" id="newTask" placeholder="یه کار جدید بنویس…" aria-label="عنوان کار">
+    <button class="add" id="addTask">افزودن کار</button>
+  </div>
+  <div id="list"></div>
+</main>
+<script>
+var tasks = [];
+var KEY = 'my-tasks-v1';
+try { var s = localStorage.getItem(KEY); if (s) tasks = JSON.parse(s) || []; } catch (e) { tasks = []; }
+
+function save() { try { localStorage.setItem(KEY, JSON.stringify(tasks)); } catch (e) {} }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function fa(n) { return String(n).replace(/\d/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'[d]; }); }
+
+function el(tag, attrs, kids) {
+  var e = document.createElement(tag);
+  for (var k in (attrs || {})) {
+    if (k === 'text') e.textContent = attrs[k];
+    else if (k.slice(0, 2) === 'on') e.addEventListener(k.slice(2), attrs[k]);
+    else e.setAttribute(k, attrs[k]);
+  }
+  (kids || []).forEach(function (c) { e.appendChild(c); });
+  return e;
+}
+
+function render() {
+  var list = document.getElementById('list');
+  list.innerHTML = '';
+  if (!tasks.length) {
+    list.appendChild(el('p', { class: 'empty', text: 'هنوز کاری اضافه نکردی. بالا بنویس و «افزودن کار» رو بزن.' }));
+    return;
+  }
+  tasks.forEach(function (t) {
+    var done = t.steps.filter(function (s) { return s.done; }).length;
+    var pct = t.steps.length ? Math.round(done / t.steps.length * 100) : 0;
+    var card = el('section', { class: 'task' });
+
+    card.appendChild(el('div', { class: 'head' }, [
+      el('h2', { text: t.title }),
+      el('span', { class: 'cnt', text: fa(done) + ' از ' + fa(t.steps.length) }),
+      el('button', { class: 'del', title: 'حذف کار', 'aria-label': 'حذف کار', text: '✕', onclick: function () {
+        if (confirm('این کار حذف بشه؟')) { tasks = tasks.filter(function (x) { return x.id !== t.id; }); save(); render(); }
+      } })
+    ]));
+    card.appendChild(el('div', { class: 'bar' }, [el('i', { style: 'width:' + pct + '%' })]));
+
+    t.steps.forEach(function (s) {
+      var id = 'c' + s.id;
+      var cb = el('input', { type: 'checkbox', id: id, onchange: function () { s.done = cb.checked; save(); render(); } });
+      cb.checked = s.done;
+      card.appendChild(el('div', { class: 'step' + (s.done ? ' done' : '') }, [
+        cb,
+        el('label', { for: id, text: s.text }),
+        el('button', { class: 'del', title: 'حذف مرحله', 'aria-label': 'حذف مرحله', text: '✕', onclick: function () {
+          t.steps = t.steps.filter(function (x) { return x.id !== s.id; }); save(); render();
+        } })
+      ]));
+    });
+
+    var inp = el('input', { type: 'text', placeholder: 'مرحله جدید…', 'aria-label': 'مرحله جدید' });
+    function addStep() {
+      var v = inp.value.trim();
+      if (!v) return;
+      t.steps.push({ id: uid(), text: v, done: false });
+      save(); render();
+      var again = document.querySelector('[data-task="' + t.id + '"] input');
+      if (again) again.focus();
+    }
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') addStep(); });
+    card.appendChild(el('div', { class: 'row addstep', 'data-task': t.id }, [
+      inp, el('button', { class: 'add', text: 'افزودن مرحله', onclick: addStep })
+    ]));
+    list.appendChild(card);
+  });
+}
+
+function addTask() {
+  var i = document.getElementById('newTask');
+  var v = i.value.trim();
+  if (!v) return;
+  tasks.unshift({ id: uid(), title: v, steps: [] });
+  i.value = '';
+  save(); render();
+  var first = document.querySelector('.task .addstep input');
+  if (first) first.focus();
+}
+document.getElementById('addTask').addEventListener('click', addTask);
+document.getElementById('newTask').addEventListener('keydown', function (e) { if (e.key === 'Enter') addTask(); });
+render();
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  });
+}
+</script>
+</body>
+</html>
